@@ -1,0 +1,7 @@
+*.o
+*.nes
+*.nes*
+.DS_Store
+*.deb
+*.dbg
+*.bak

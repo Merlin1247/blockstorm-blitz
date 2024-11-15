@@ -1,0 +1,12 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "ca65: Assemble and Link Current File",
+            "group": "build",
+            "type": "shell",
+            "command": "C:\\cc65\\bin\\cl65 --cpu 6502X -g --target nes --ld-args --dbgfile,'Blockstorm Blitz.dbg' -o 'Blockstorm Blitz.nes' blockstormblitz.s",
+            "problemMatcher": ["$ca65", "$ld65"]
+        }
+    ]
+}

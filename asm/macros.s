@@ -1,0 +1,2 @@
+.MACPACK generic
+.MACPACK longbranch
