@@ -12,12 +12,13 @@ Blockstorm Blitz is a breakout-style NES(Nintendo Entertainment System) game pro
 
 ## Playing
 
-Simply take the `.nes` file you just built and run it using any NES emulator (such as [Mesen](https://github.com/SourMesen/Mesen2)).
+Simply take the `.nes` file you just built and run it using any* NES emulator.
+(Note: The game currently relies on unofficial CPU opcodes($9C and $9E) not implemented correctly by some emulators. I highly recommend using the latest version of [Mesen](https://github.com/SourMesen/Mesen2) for this reason, and many others.)
 
 ## Extra tools
 
 - To make the compilation process less tedious, go to `Terminal>Configure Default Build Task...` and set it to `ca65: Assemble and Link Current File`
-- To edit `default.chr` (the file containing the sprite + background bitmaps), download [YYCHR](https://w.atwiki.jp/yychr/) (and make sure the format is `2BPP NES`)
+- To edit `default.chr` (the file containing the sprite + background bitmaps), download a tile-editing tool such as [YYCHR](https://w.atwiki.jp/yychr/) (and make sure the format is `2BPP NES`)
 - To edit `levelData.lvl` (the file containing the game's level data), download [NBLevelEditor](github.com/Merlin1247/NBLevelEditor)
 
 ## Contributing
