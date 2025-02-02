@@ -1,10 +1,7 @@
+.setcpu "6502X"
+
 .segment "HEADER"
-  .byte $4E, $45, $53, $1A ;iNES header identifier
-  .byte $02                ;2x 16KB PRG code
-  .byte $01                ;1x 8KB CHR data
-  .byte $00                ;No mapping or mirroring
-  .byte $00, $00, $00, $00
-  .byte $00, $00, $00, $00, $00 
+  .include "asm\header.s"
 
 .segment "VECTORS"
   .word NMI

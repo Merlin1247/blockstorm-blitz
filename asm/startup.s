@@ -1,86 +1,81 @@
-  sei ;Disable IRQs
-  cld ;Clear decimal mode
+  SEI ;Disable IRQs
 
-  ldx #%1000000 
-  stx $4017 ;Disable sound IRQ
-  lax #$00
-  sta $4010 ;Disable DMC IRQs
+  STY $4010 ;Disable DMC IRQs
+  LDA #%10000000
+  STA $4017 ;Disable sound IRQ
 
   ;Clear PPU registers
-  sta ppuCtrl
-  sta ppuMask
+  STX ppuCtrl
+  STY ppuMask
 
   ;Initialize the stack pointer
-  dex
-  txs
+  TXS
 
 : ;Wait for VBLANK
-  bit ppuStatus
-  bpl :-
+  BIT ppuStatus
+  BPL :-
 
   ;Clear CPU memory
-  tay
-@LOOPCPU:
-  sta $0000, Y
-  sta $0100, Y 
-  txa
-  sta $0200, Y
-  lda #0
-  sta $0300, Y
-  sta $0400, Y
-  sta $0500, Y
-  sta $0600, Y
-  sta $0700, Y
-  iny
-  bne @LOOPCPU
+  ;lda #3
+  ;sta $B1
+  ;stx $B0
+ @LOOPCPU:
+ ;.byte $93, $B0 sha
+  STX $00, Y
+  .byte $9E, $00, >blockHitBuffer ;shx $0700, Y
+  ;sta blockHitBuffer, Y
+  INY
+  BNE @LOOPCPU
+  ;dec $B1
+  ;bpl :-
 
-  stx gameStatus ;anything non-zero should work
+  LDX #5
+  STX healthPageIndex+1
 
-  ldy #5
-  lda #$F6
- :sta points, Y
-  dey
-  bpl :-
+  INX ;6
+  STX ballIndex+1
+  STX ballIndex+3
+
+  ;ldx #6
+  LDA #$F6
+ :STA points-1, X
+  DEX
+  BNE :-
+
+  STA gameStatus ;anything with bit 6 set will work
 
 : ;Wait for VBLANK
-  bit ppuStatus
-  bpl :-
+  BIT ppuStatus
+  BPL :-
 
-: ;Wait for VBLANK
-  bit ppuStatus
-  bpl :-
+: ;Wait for VBLANK (???)
+  BIT ppuStatus
+  BPL :-
 
-  nop
-  lda #$3F ;$3F00
-  sta ppuAddr
-  lda #$00
-  sta ppuAddr
-  ldx #0
-@LOADPALETTES:
-    lda PALETTEDATA, x
-    sta ppuData
-    inx
-    cpx #$20
-    bne @LOADPALETTES
+  STX ppuCtrl
+  STX ppuCtrlTracker
+
+  LDX #<PALETTEDATA
+  LDA #>PALETTEDATA
+  JSR DrawText
   
-  ldx #$00
-@LOADSPRITES:
-    lda SPRITEDATA, x
-    sta oamBuffer, x
-    inx
-    cpx #$14
-    bne @LOADSPRITES
-
-  ;Reset scroll
-	lda #$00
-	sta ppuScroll
-	sta ppuScroll
+  ;ldx #$00
+;@LOADSPRITES:
+    ;lda SPRITEDATA, x
+    ;sta oamBuffer, x
+    ;inx
+    ;cpx #$14
+    ;bne @LOADSPRITES
 
   ;Set paddle position
-  lda #$70
-  sta paddleX
+  LDA #$70
+  STA paddleX
 
-  jsr LoadBackground
+  
+  ;lda #1
+  ;sta level
 
-  lda #0
-  sta gameStatus
+  JSR LoadBackground
+
+  TSX
+  STX gameStatus

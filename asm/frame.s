@@ -1,153 +1,144 @@
 INFLOOP:
-  ldx #0
-  jsr ReadControllerInputs
+  TSX
+  JSR ReadControllerInputs
 
-  inc globalTimer
+  INC globalTimer
 
-  lax gameStatus ;Check game status, if not in game, return immediately
-  and #%00000011
-  beq :+
-  jmp WAITVBLANK
+  LAX gameStatus ;Check game status, if not in game, return immediately
+  AND #%00000011
+  BEQ :+
+  JMP WAITVBLANK
   :
 
-  txa ;Check game end flag
-  bpl NORMALFRAME
-  
-  and #%00100000 ;Check won/lost flag
-  beq LOSTFRAME
+  TXA ;Check game end flag
+  BPL NORMALFRAME
+
+  AND #%00100000 ;Check won/lost flag
+  BEQ LOSTFRAME
 
 WONFRAME:
-  lda globalTimer
-  bne :++
-  ldx level
-  inx
-  cpx #levelCount
-  bne :+
-  ldx #0
- :stx level
-  jsr LoadBackground
-  lda #0
-  sta gameStatus
-  :jmp WAITVBLANK
+  LDA globalTimer
+  BNE :++
+  LDX level
+  INX
+  CPX #levelCount
+  BNE :+
+  TSX
+ :STX level
+  LDA #$40
+  STA gameStatus
+  JSR LoadBackground
+  TSX
+  STX gameStatus
+ :JMP WAITVBLANK
 LOSTFRAME:
-  lda globalTimer
-  bne :++
-  lda level
-  beq :+
-  dec level
- :jsr LoadBackground
-  lda #0
-  sta gameStatus
-  :jmp WAITVBLANK
+  LDA globalTimer
+  BNE :++
+  LDA level
+  BEQ :+
+  DEC level
+ :LDA #$40
+  STA gameStatus
+  JSR LoadBackground
+  TSX
+  STX gameStatus
+ :JMP WAITVBLANK
 
 NORMALFRAME:
-  clc ;Increase ball x
-  lda ballXSubPos
-  adc ballXSubSpeed
-  sta ballXSubPos
-  lda ballXPos
-  adc ballXSpeed
-  sta ballXPos
 
-  lda #$10 ;Figure out if the ball hits a horizontal wall
-  cmp $04
-  bcc :+
-  sta $04
-  jsr SetBallSpdXRight
-: lda #$EB
-  cmp $04
-  bcs :+
-  sta $04
-  jsr SetBallSpdXLeft
+  LDX #bhbLength
+  STX bhbIndex
+
+  ;Move paddle right
+  LDA controller1
+  ROR A
+  BCC :+
+  LDA #$D0
+  CMP paddleX
+  BEQ :+
+  INC paddleX
+: 
+  ;Move paddle left
+  ROR A
+  BCC :+
+  LDY #$10
+  CPY paddleX
+  BEQ :+
+  DEC paddleX
 :
 
-  clc ;Increase ball y
-  lda ballYSubPos
-  adc ballYSubSpeed
-  sta ballYSubPos
-  lda ballYPos
-  sta prevFrameBallY
-  adc ballYSpeed
-  sta ballYPos
+  LDX #maxBallCount*4+4;+4 to avoid using sprite 0
+  LDA #maxBallCount*6
+ BALLLOOP:
+  STA ballIndex
 
-  ;Move paddle left
-  lda #%00000010
-  and $FE
-  beq :+
-  lda #$10
-  cmp paddleX
-  beq :+
-  dec paddleX
-: ;Move paddle right
-  lda #%00000001
-  and $FE
-  beq :+
-  lda #$D0
-  cmp paddleX
-  beq :+
-  inc paddleX
-: 
+  TXA
+  AXS #4 ;Not affected by C
+
+  LDY #5 ;Load current ball data
+ :LDA (ballIndex), Y
+  STA ballTemp+2, Y
+  DEY
+  BPL :-
+
+  ;A already contains X speed
+  ARR #%11111111 ;Sets V if bit 6 of result != bit 5
+
+  BVC :+
+  JMP DECBALLINDEX
+  :
+
+  STX oamBufferIndex
+
+  CLC ;Increase ball x
+  LDA ballXSubPosTemp
+  ADC ballXSubSpeedTemp
+  STA ballXSubPosTemp
+  LDA oamBuffer+3, X
+  ADC ballXSpeedTemp
+  STA ballXPosTemp
+
+  CLC ;Increase ball y (Put after border to clear C?)
+  LDA ballYSubPosTemp
+  ADC ballYSubSpeedTemp
+  STA ballYSubPosTemp
+  LDA oamBuffer+0, X
+  ADC ballYSpeedTemp
+  STA ballYPosTemp
+
+
+  LDA #$10 ;Figure out if the ball hits a horizontal wall
+  CMP ballXPosTemp
+  BCC :+
+  STA ballXPosTemp
+  JSR SetBallSpdXRight
+: LDA #$EB
+  CMP ballXPosTemp
+  BCS :+
+  STA ballXPosTemp
+  JSR SetBallSpdXLeft
+:
 
 ;Block collision detection:
-  lda ballXPos
-  sec
-  sbc #08
-  lsr A
-  lsr A
-  lsr A
-  lsr A
+  LDA ballXPosTemp
+  SEC
+  SBC #08
+  LSR A
+  LSR A
+  LSR A
+  ;lsr A
   ;and %00001111
-  sta $F2
-  lda ballYPos
-  sec
-  sbc #08
-  and #%11110000
-  ora $F2
-  sta $FD
-  tax ;At this point, X contains the memory location of the health of the top-leftmost block
-  ldy #0
-  lda healthPage, X ;top-left
-  sta $F2 
-  beq :+
-  ldy #%11000000
-: inx
-  lda healthPage, X ;top-right
-  sta $F3
-  beq :+
-  tya
-  ora #%00100001
-  tay
-: txa
-  clc
-  adc #$0F
-  tax
-  lda healthPage, X ;bottom-left
-  sta $F4
-  beq :+
-  tya
-  ora #%00010010
-  tay
-: inx
-  lda healthPage, X ;bottom-right
-  sta $F5
-  beq :+
-  tya
-  ora #%00001100
-  tay
-: tya
-  and #%00110011
-  asl A
-  asl A
-  sta $FC
-  tya
-  and #%11001100
-  lsr A
-  lsr A
-  ora $FC
-  sty $FC
-  eor #%11111111
-  and $FC
-  sta $FC
+  STA $FC
+  LDA ballYPosTemp
+  SEC
+  SBC #08
+  AND #%11110000
+  SRE $FC
+  STA $FD
+  TAX ;X contains the memory location of the health of the top-leftmost block
+
+  LDA hitboxPage, X
+  STA $FC
 
 .macro wallpush vertical, hitboxedge, hitboxedgeside, hitboxfront, hitboxdir, blockHit, prevSameCollisions
   .local NOHIT
@@ -155,185 +146,228 @@ NORMALFRAME:
   .local parallelaxis
   .local pushaxis
   .local moveBuffer
-  asl $FC
-  bcc NOHIT ;1
+  ASL $FC
+  BCC NOHIT ;1
   .if vertical
-    .define parallelaxis ballXPos
-    .define pushaxis ballYPos
+    .define parallelaxis ballXPosTemp
+    .define pushaxis ballYPosTemp
     .define moveBuffer $EF
   .else
-    .define parallelaxis ballYPos
-    .define pushaxis ballXPos
+    .define parallelaxis ballYPosTemp
+    .define pushaxis ballXPosTemp
     .define moveBuffer $EE
   .endif
-  lda parallelaxis ;2
-  adc #7 ;Carry always set, so +1
-  and #%00001111
+  LDA parallelaxis ;2
+  ADC #7 ;Carry always set, so +1
+  AND #%00001111
   .if hitboxedgeside
-    cmp #16-hitboxedge-1
-    bmi NOHIT
+    CMP #16-hitboxedge-1
+    BMI NOHIT 
   .else
-    cmp #hitboxedge+1
-    bpl NOHIT
+    CMP #hitboxedge+1
+    BPL NOHIT
   .endif ;3
-  lax pushaxis ;3b
-  clc ;could replace w/ .if hitbox edge #-1
-  adc #8
-  and #%00001111
+  LAX pushaxis ;3b
+  CLC ;could replace w/ .if hitbox edge #-1
+  ADC #8
+  AND #%00001111 ;carry always clear
   .if !hitboxdir
-    cmp #hitboxfront+1
-    bpl NOHIT
-    cmp #hitboxfront-4
-    bmi NOHIT
+    CMP #hitboxfront+1
+    BPL NOHIT
+    CMP #hitboxfront-4
+    BMI NOHIT
+    ;adc #$FE-hitboxfront
+    ;adc #6
+    ;bcs NOHIT
   .else
-    cmp #hitboxfront
-    bmi NOHIT
-    cmp #hitboxfront+5
-    bpl NOHIT
+    CMP #hitboxfront
+    BMI NOHIT
+    CMP #hitboxfront+5
+    BPL NOHIT
+    ;adc #$FA-hitboxfront
+    ;adc #6
+    ;bcs NOHIT
   .endif ;4
-  txa
-  sec
-  sbc #8
-  and #%11110000
-  clc
+  TXA
+  CLC
+  SBC #7 ;-1, carry clear
+  AND #%11110000 ;carry is set
   .if !hitboxdir
-    adc #hitboxfront+9
+    ADC #hitboxfront+8
   .else
-    adc #hitboxfront+7
+    ADC #hitboxfront+6
   .endif
-  sec
-  sbc pushaxis
-  sec
-  sbc moveBuffer
-  sta moveBuffer ;6
+  SEC
+  SBC pushaxis
+  SEC
+  SBC moveBuffer
+  STA moveBuffer ;6
   .if vertical
     .if !hitboxdir
-      jsr SetBallSpdYDown
+      JSR SetBallSpdYDown
     .else
-      jsr SetBallSpdYUp
+      JSR SetBallSpdYUp
     .endif
   .else
     .if !hitboxdir
-      jsr SetBallSpdXRight
+      JSR SetBallSpdXRight
     .else
-      jsr SetBallSpdXLeft
+      JSR SetBallSpdXLeft
     .endif
   .endif ;7
 
   .if prevSameCollisions
-    lsr $0D
-    bcs EXIT
+    LSR cellBlockHits
+    BCS EXIT
   .else
-    sec
-    rol $0D
+    SEC
+    ROL cellBlockHits
   .endif
 
   .if blockHit = 1
-    lda #$00
+    LDA #$00
   .elseif blockHit = 2
-    lda #$01
+    LDA #$01
   .elseif blockHit = 3
-    lda #$10
+    LDA #$10
   .elseif blockHit = 4
-    lda #$11 
+    LDA #$11 
   .endif
 
-  adc $FD
+  JSR HitBlock
 
-  jsr HitBlock
-
-  jmp EXIT
+  BNE EXIT
   NOHIT:
     .if prevSameCollisions
-      lsr $0D
+      LSR cellBlockHits
     .else
-      clc
-      rol $0D
+      CLC
+      ROL cellBlockHits
     .endif
   EXIT:
 .endmacro
 
+;00010100
+
   wallpush 0, 4, 0, 7, 0, 1, 0 ;AB
   wallpush 1, 5, 0, 6, 0, 1, 1 ;AC
-  wallpush 0, 4, 0, 4, 1, 2, 0;BA
-  wallpush 1, 5, 0, 3, 1, 3, 0;CA
-  wallpush 0,10, 1, 4, 1, 4, 0;DC
-  wallpush 1, 9, 1, 3, 1, 4, 1;DB
-  wallpush 0,10, 1, 7, 0, 3, 1;CD
-  wallpush 1, 9, 1, 6, 0, 2, 1;BD
-
-  clc
-  lda ballXPos
-  adc $EE
-  sta ballXPos
-  clc
-  lda ballYPos
-  adc $EF
-  sta ballYPos
-
-  lda #0 ;clear temp ball vectors
-  sta $EE
-  sta $EF
-
-  lda globalTimer
-  and #%00111111
-  bne :+
-  jsr IncTime
- :
+  wallpush 0, 4, 0, 4, 1, 2, 0 ;BA
+  wallpush 1, 5, 0, 3, 1, 3, 0 ;CA
+  wallpush 0,10, 1, 4, 1, 4, 0 ;DC
+  wallpush 1, 9, 1, 3, 1, 4, 1 ;DB
+  wallpush 0,10, 1, 7, 0, 3, 1 ;CD
+  wallpush 1, 9, 1, 6, 0, 2, 1 ;BD
 
 @WINLOSE: ;Check if the game is won or lost
   ;lda #0
   ;sta $FC
 
-  lda ballYPos ;inrange paddle - bottom
-  cmp #$DB
-  bmi @EXIT
-  cmp #$FF
-  bpl @EXIT
+  ;lda ballYPosTemp ;inrange paddle - bottom
+  ;cmp #$DB
+  ;bmi @EXIT
+  ;cmp #$FF
+  ;bpl @EXIT
 
-  lda ballYPos ; inrange paddle killzone
-  cmp #$DB
-  bmi :+
-  cmp #$E4
-  bpl :+
+  LDA ballYPosTemp
+  CMP #$DB
+  BCC @EXIT
+  CMP #$F1
+  BCS @LOSEBALL; inrange paddle killzone
+  CMP #$DF
+  BCS @EXIT
 
-  lda ballXPos ;inrangex paddlex
-  cmp paddleX
-  bmi @EXIT
-  cmp $F1
-  bpl @EXIT
+  LDA ballXPosTemp ;inrangex paddlex
+  ADC #2
+  CMP $F1
+  BCS @EXIT ;right of paddle
+  CMP paddleX
+  BCC @EXIT ;left of paddle
 
-  lda prevFrameBallY ;prevy high - paddle
-  cmp #$BA
-  bmi @EXIT
-  cmp #$DB
-  bpl @EXIT
+  ;cmp #$E6
+  ;bcs @HITPADDLESIDE Not working very well
 
-  jsr SetBallSpdYUp ;Hit paddle
-  lda #$DB
-  sta ballYPos
-  jmp @EXIT
+  ;lda prevFrameBallY ;prevy high - paddle
+  ;cmp #$BA
+  ;bmi @EXIT
+  ;cmp #$DB
+  ;bpl @EXIT
 
-: lda #%10000000 ;Game lost
-  sta gameStatus
-  lda #0
-  sta globalTimer
+  JSR SetBallSpdYUp ;Hit paddle
+  LDA #$DA
+  STA ballYPosTemp
+  BNE @EXIT ;always branch
+
+; @HITPADDLESIDE:
+;  lda paddleX
+;  adc #$10 ;Exact value doesnt matter
+;  cmp ballXPosTemp
+;  bpl :+
+;  jsr SetBallSpdXRight
+;  bcc @EXIT
+; :jsr SetBallSpdXLeft
+;  bcs @EXIT
+
+ @LOSEBALL:
+  LDA #%01000000
+  STA ballXSpeedTemp
+  LDA #maxBallCount
+  ISC currentBallCount ;carry is set
+  BNE :+
+
+  LDA #%10000000 ;Game lost
+  STA gameStatus
+  ASL A
+  STA globalTimer
   
 @EXIT:
-  lda ballYPos
-  bmi :+
-  cmp #$13
-  bpl :+
-  lda #%10100000 ;Game won
-  sta gameStatus
-  lda #0
-  sta globalTimer
+  LDA ballYPosTemp
+  BMI :+
+  CMP #$13
+  BPL :+
+  LDA #%10100000 ;Game won
+  STA gameStatus
+  LDA #0
+  STA globalTimer
   :
+  
+  CLC
+  LDX oamBufferIndex
+  LDA ballXPosTemp
+  ADC $EE
+  STA oamBuffer+3, X
+  CLC 
+  LDA ballYPosTemp
+  ADC $EF
+  STA oamBuffer+0, X
+
+  ANC #0 ;clear temp ball vectors and C
+  STA $EE
+  STA $EF
+
+  LDY #5
+ :LDA ballTemp+2, Y
+  STA (ballIndex), Y
+  DEY 
+  BPL :-
+
+ DECBALLINDEX:
+  LDA ballIndex
+  ;clc
+  SBC #6-1 ;C always clear
+  BEQ :+
+  JMP BALLLOOP
+ :
+
+  LDA globalTimer
+  AND #%00111111
+  BNE :+
+  JSR IncTime
+ :
 
 WAITVBLANK:
-  lda gameStatus
-  ora #%01000000
-  sta gameStatus
-: bit gameStatus
-  bvs :-
-  jmp INFLOOP
+  LDA gameStatus
+  ORA #%01000000
+  STA gameStatus
+: BIT gameStatus
+  BVS :-
+  JMP INFLOOP

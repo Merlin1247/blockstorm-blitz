@@ -1,136 +1,122 @@
   ;Update game status
-  bit gameStatus
-  bvs :+
-  jmp LOADOAM
- :lda #%10010000
-  sta ppuCtrl
-  lda gameStatus
-  and #%10111111
-  sta gameStatus
-  bpl GAME
-  and #%00100000
-  bne WIN
+  PHA
+  BIT gameStatus
+  BVS :+
+  JMP LOADOAM
+ :LDA gameStatus
+  AND #%10111111
+  STA gameStatus
+  BPL GAME
+  AND #%00100000
+  BNE WIN
 
 LOSE:;Game over case
-  lda #$21
-  sta ppuAddr
-  lda #$EB
-  sta ppuAddr
-  ldx #0
-  stx ppuScroll
-  stx ppuScroll
-: lda GAMEOVER, X
-  sta ppuData
-  inx
-  cpx #$09
-  bne :-
-  rti
+  LDX #<GAMEOVER
+  LDA #>GAMEOVER
+  BNE :+
 
 WIN: ;Win case
-  lda #$21
-  sta ppuAddr
-  lda #$EC
-  sta ppuAddr
-  ldx #0
-  stx ppuScroll
-  stx ppuScroll
- @WINTEXTLOOP:
-  lda YOUWIN, X
-  sta ppuData
-  inx
-  cpx #$07
-  bne @WINTEXTLOOP
-  rti
+  LDX #<YOUWIN
+  LDA #>YOUWIN
+ :JSR DrawText
+  PLA
+  RTI
 
 GAME:
-  clc ;Set paddle components' X position
-  lda $03
-  sta $0207
-  adc #$08
-  sta $020B
-  adc #$08
-  sta $020F
-  adc #$08
-  sta $0213
-  adc #$08
-  sta $F1
 
-  ldy #$20
+  CLC ;Set paddle components' X position (can move out of NMI)
+  LDA $03
+  STA oamBuffer+$87
+  ADC #$08
+  STA oamBuffer+$8B
+  ADC #$08
+  STA oamBuffer+$8F
+  ADC #$08
+  STA oamBuffer+$83
+  ADC #$08
+  STA $F1
+
+  LDA ppuCtrlTracker
+  AND #%10111011
+  STA ppuCtrl
+  LDY #$20 ;Update points display
   sty ppuAddr
-  lda #$37
-  sta ppuAddr
-  ldx #$7A
- :lda points-$7A, X
-  sta ppuData
-  inx
-  bpl :-
+  LDA #$37
+  STA ppuAddr
+  LDX #$7A
+ :LDA points-$7A, X
+  STA ppuData
+  INX
+  BPL :-
 
-  sty ppuAddr
-  lda #$27
-  sta ppuAddr
-  ldx #$7C
- :lda time-$7C, X
-  sta ppuData
-  inx
-  bpl :-
+  sty ppuAddr ;Update score display
+  LDA #$27
+  STA ppuAddr
+  LDX #$7C
+ :LDA time-$7C, X
+  STA ppuData
+  INX
+  BPL :-
 
+  LDA ppuCtrlTracker
+  STA ppuCtrl
 
-  ldx #%10010100
-  stx ppuCtrl
-
-  ldy #1
- :ldx $E0, Y ;Update block tile
-  beq :+
-  ;lda #%10010100
-  ;sta ppuCtrl
-  stx ppuAddr
-  lda $E2, Y
-  sta ppuAddr
-  lda $E4, Y
-  sta ppuData
-  adc #$10
-  sta ppuData
-  stx ppuAddr
-  ldx $E2, Y
-  inx
-  stx ppuAddr
-  lda $E6, Y
-  sta ppuData
-  adc #$10
-  sta ppuData 
+  LDY #bhbLength
+ BlockLoop:
+  LDA bhbAddrHi, Y ;Update block tile
+  BEQ :+
+  ;LDA #%10010100
+  ;STA ppuCtrl
+ SingleStore:
+  STA ppuAddr
+  LDX bhbAddrLo, Y ;bit 5 is always clear
+  .byte $9E, $00, $1F;SHX mirror of bhb (H+1=$20 H = $1F) Could be put out of vblank?
+  STX ppuAddr
+  STA ppuAddr
+  LDA bhbTileTL, Y
+  STA ppuData
+  ADC #$10
+  STA ppuData
+  INX
+  STX ppuAddr
+  LDA bhbTileTR, Y
+  STA ppuData
+  ADC #$10
+  STA ppuData
   ;Store new pallette data
-  ldx #$23
-	stx ppuAddr
-  lda $E8, Y
-	sta ppuAddr
-  lda ppuData ; Totally 100% necessary
-  lda ppuData ; Current palette data in accumulator
-  sta $0F
-  lda $EA, Y
-  and $0F ; Other 3 palette bits in accumulator
-  ora $EC, Y ; Combine with new palette data
-	stx ppuAddr
-  ldx $E8, Y
-	stx ppuAddr
-  sta ppuData ; Store final palette data
- :dey
-  bpl :--
+  LDX bhbPaletteAddrLo, Y
+  LDA #$23
+  STA ppuAddr ;set w
+	STX ppuAddr
+  STA ppuAddr
+  LDA ppuData ; Totally 100% necessary
+  LDA bhbPaletteMask, Y ;unaffected palette mask
+  AND ppuData ; Other 3 palette bits in accumulator
+  ORA bhbNewPalette, Y ; Combine with new palette data
+  STX ppuAddr
+  STA ppuData ; Store final palette data
+  ;Store 0 to mark slot as empty
+ :DEY
+  BNE BlockLoop ;107/108
+  BIT gameStatus
+  BVS RETSINGLESTORE
 
-  lda #0
-  sta ppuScroll
-  sta ppuScroll
-  sta $E0
-  sta $E1
-  
-  lda ballXPos
-  ;adc #$FE
-  sta $0203 ;Set ball x
-  lda ballYPos
-  sta $0200 ;Set ball y
+  STY ppuScroll ;Y is always 0
+  STY ppuScroll
 
  LOADOAM:
-  pha
-  lda #>oamBuffer
-  sta oamDMA ;Set sprite range  
-  pla
-  rti
+  LDA #>oamBuffer
+  STA oamDMA ;Set sprite range  
+  PLA
+  RTI
+ RETSINGLESTORE:
+  RTS ;use from following sub
+
+  ;nametableaddrhi (topleft tile)
+  ;nametableaddrlo (topleft tile)
+  ;tile index left (topleft tile)
+  ;tile index right (topleft tile)
+  ;nametableaddrlo (palette)
+  ;pallette byte
+
+  ;LDA $0300+25c, Y 
