@@ -1,33 +1,52 @@
+;Copyright (C) 2025 Brandon W. See blockstormblitz.s for more information.
+
   SEI ;Disable IRQs
 
   STY $4010 ;Disable DMC IRQs
   LDA #%10000000
   STA $4017 ;Disable sound IRQ
 
-  ;Clear PPU registers
-  STX ppuCtrl
-  STY ppuMask
+  TXS ;Initialize the stack pointer
 
-  ;Initialize the stack pointer
-  TXS
+  BIT ppuStatus ;Make sure vblank flag is clear
 
-: ;Wait for VBLANK
-  BIT ppuStatus
+ ;Wait for VBLANK
+ :BIT ppuStatus
   BPL :-
 
   ;Clear CPU memory
-  ;lda #3
-  ;sta $B1
-  ;stx $B0
  @LOOPCPU:
  ;.byte $93, $B0 sha
   STX $00, Y
   .byte $9E, $00, >blockHitBuffer ;shx $0700, Y
-  ;sta blockHitBuffer, Y
   INY
   BNE @LOOPCPU
-  ;dec $B1
-  ;bpl :-
+
+  JSR UpdateVectors
+
+  STX stackMem+1 ;set sprite 0 blank, since its Y pos is part of stack
+
+ ;Set up pause sprites
+  LDX #5*4+3
+ :TXA
+  ASL A
+  ADC #$80-$18-6
+  STA stackMem+3+1, X ;X pos
+  LDA #$78-8-8-1
+  STA stackMem+0+1, X ;Y pos
+  TXA
+  LSR A
+  ;LSR A
+  ;ASL A
+  ADC #$10-2
+  STA stackMem+1+1, X ;Tile
+  TXA
+  STA stackMem+2+1, X ;bits 7-5 are 0, 1-0 are 1, 4-2 don't matter
+  AXS #4
+  BPL :-
+
+  LDX #2
+  STX oamHiByte
 
   LDX #5
   STX healthPageIndex+1
@@ -36,46 +55,32 @@
   STX ballIndex+1
   STX ballIndex+3
 
-  ;ldx #6
+  ;LDX #6
   LDA #$F6
  :STA points-1, X
   DEX
   BNE :-
 
-  STA gameStatus ;anything with bit 6 set will work
-
-: ;Wait for VBLANK
-  BIT ppuStatus
-  BPL :-
-
-: ;Wait for VBLANK (???)
-  BIT ppuStatus
-  BPL :-
-
-  STX ppuCtrl
-  STX ppuCtrlTracker
-
-  LDX #<PALETTEDATA
-  LDA #>PALETTEDATA
-  JSR DrawText
-  
-  ;ldx #$00
-;@LOADSPRITES:
-    ;lda SPRITEDATA, x
-    ;sta oamBuffer, x
-    ;inx
-    ;cpx #$14
-    ;bne @LOADSPRITES
+  STA gameModeBuffer ;Something negative
 
   ;Set paddle position
   LDA #$70
   STA paddleX
 
-  
-  ;lda #1
-  ;sta level
+  ;Wait for VBLANK
+ :BIT ppuStatus
+  BPL :-
 
-  JSR LoadBackground
+  ;Wait for VBLANK (???)
+ :BIT ppuStatus
+  BPL :-
+  ;PPU registers are now stable
 
-  TSX
-  STX gameStatus
+  ;PpuCtrl & Tracker are 0
+
+  LDX #<PALETTEDATA
+  LDA #>PALETTEDATA
+  JSR DrawText
+
+  ;LDA #2
+  ;STA level

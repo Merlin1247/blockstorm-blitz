@@ -1,6 +1,19 @@
+;Copyright (C) 2025 Brandon W. See blockstormblitz.s for more information.
+FRAMEVECTORSLO:
+  .byte <TITLE_F, <GAME_F, <PAUSE_F, <GAMELOST_F, <GAMEWON_F, <LEVELSELECT_F
+
+FRAMEVECTORSHI:
+  .byte >TITLE_F, >GAME_F, >PAUSE_F, >GAMELOST_F, >GAMEWON_F, >LEVELSELECT_F
+
+VBLANKVECTORSLO:
+  .byte <TITLE_V, <GAME_V, <PAUSE_V, <GAMELOST_V, <GAMEWON_V, <LEVELSELECT_V
+
+VBLANKVECTORSHI:
+  .byte >TITLE_V, >GAME_V, >PAUSE_V, >GAMELOST_V, >GAMEWON_V, >LEVELSELECT_V
+
 PALETTEDATA:
   .byte @END-PALETTEDATA-1 ;length	
-  .byte $30,$2C,$3C,$00, $30,$30,$0F,$00, $27,$11,$0F,$0F, $1C,$15,$30,$0F ;sprite palettes
+  .byte $12,$23,$34,$00, $30,$30,$0F,$00, $27,$11,$0F,$0F, $1C,$15,$30,$0F ;sprite palettes
   .byte $27,$11,$30,$0F, $29,$1A,$30,$0F, $17,$02,$30,$0F, $06,$13,$30,$0F ;background palettes
 ;block colours: 1-4 - purple, 5-9 - indigo, 10-19 - blue, 20-29 - green, 30-49 - yellow green, 50-69 - yellow, 70-89 - orange, 90-100 - red 
   .byte $00, $3F ;ppuAddr

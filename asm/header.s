@@ -1,3 +1,4 @@
+;Copyright (C) 2025 Brandon W. See blockstormblitz.s for more information.
 ;This header follows the NES2.0 standard
   .byte $4E, $45, $53, $1A ;iNES/NES2.0 header identifier
   .byte $02                ;PRG ROM LSB: 2x 16KB

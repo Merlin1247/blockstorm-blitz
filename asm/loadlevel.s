@@ -1,5 +1,7 @@
+;Copyright (C) 2025 Brandon W. See blockstormblitz.s for more information.
 LoadBackground: ;Display static background elements
   SEI ;Disable interrupts
+  DEC loadingFlag
   LAX #0
   STX ppuCtrl
   STX ppuCtrlTracker
@@ -10,7 +12,7 @@ LoadBackground: ;Display static background elements
   STA ppuAddr
   STY ppuAddr
 
-@LOOPPPU:
+ @LOOPPPU:
   LDA #$40
   STA ballDataPage, Y
   LDA #$FF
@@ -28,6 +30,12 @@ LoadBackground: ;Display static background elements
   AXS #4 ;A is still $FF
   BNE :-
 
+  LDX #3 ;Reset time
+  LDY #$F6
+ :STY time, X 
+  DEX
+  BPL :-
+
   LDA #$DD ;loop
   STA oamBuffer+$80
   STA oamBuffer+$84
@@ -42,7 +50,26 @@ LoadBackground: ;Display static background elements
   INX ;5
   STX oamBuffer+$81
 
-  JSR DrawHUD
+ ;Draw HUD
+  LDX #<FIRSTLINE
+  LDA #>FIRSTLINE
+  JSR DrawText
+
+ ;Level count
+  LDY level
+  INY
+  JSR HexToDec255
+  LDA #$20 
+	STA ppuAddr
+  LDA #$30 
+	STA ppuAddr
+  TXA
+  ADC #$F6
+  STA ppuData
+  LDA $F5
+  ADC #$F6
+  STA ppuData
+
 
   LDY #%00010100
   STY ppuCtrl
@@ -236,7 +263,7 @@ LoadBackground: ;Display static background elements
   JMP @LOOP
  @HBUPDATEALL:
   ;New version with registers shuffled
-  BIT $00 ;Set overflow (Necessary?)
+  BIT time ;Set overflow (Necessary?)
   LDX #$CF
 UpdateHitbox:
   LDA healthPage, X
@@ -284,12 +311,8 @@ UpdateHitbox:
   ;Setting sprite range
   LDA #>oamBuffer
   STA oamDMA
-  LDX #3
-  LDY #$F6
- :STY time, X 
-  DEX
-  BPL :-
   
+  INC loadingFlag
   CLI ;Enable interrupts
  @RTS:
   RTS

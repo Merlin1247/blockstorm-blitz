@@ -1,14 +1,31 @@
+;Copyright (C) 2025 Brandon W. See blockstormblitz.s for more information.
+UpdateVectors:
+  LDA FRAMEVECTORSHI, X
+  STA frameVector+1
+  LDY FRAMEVECTORSLO, X
+  STY frameVector
+  LDA VBLANKVECTORSHI, X
+  STA vBlankVector+1
+  LDY VBLANKVECTORSLO, X
+  STY vBlankVector
+  ;STX gameStatus
+  RTS
+
 ReadControllerInputs:
-  LDY #1 
-  STY controller1, X ;Initialize output memory
-  STY $4016
-  DEY
-  STY $4016 ;Send a pulse to the 4021
+  LDA #1
+  STA $4016 
+  STA controller1Press
+  LSR $4016 ;Send a pulse to the 4021 ;S is high while being read
   READLOOP:
-    LDA $4016
-    LSR A
-    ROL controller1, X
+    LDA $4016 ;, X
+    ROR A
+    ROL controller1Press
     BCC READLOOP
+  LAX controller1Press
+  ;TAX
+  EOR controller1Input ;, X?
+  STX controller1Input ;, X?
+  SAX controller1Press ;, X?
   RTS
   
 SetBallSpdXLeft:
@@ -130,27 +147,6 @@ DrawText:
   STX ppuCtrl
   STY ppuScroll
   STY ppuScroll
-  RTS
-
-DrawHUD:
-  LDX #<FIRSTLINE
-  LDA #>FIRSTLINE
-  JSR DrawText
-
- ;Level count
-  LDY level
-  INY
-  JSR HexToDec255
-  LDA #$20 
-	STA ppuAddr
-  LDA #$30 
-	STA ppuAddr
-  TXA
-  ADC #$D1
-  STA ppuData
-  LDA $F5
-  ADC #$D1
-  STA ppuData
   RTS
 
 HexToDec255:
@@ -382,17 +378,15 @@ SetTilePalette:
   EOR #%11111111
   TAX
 
-  BIT gameStatus
+  BIT loadingFlag
   BVS @LOAD1
   DEC bhbIndex
   LDY bhbIndex
   BNE @STOREPALETTE
-  LDA gameStatus
-  ORA #%01000000
-  STA gameStatus
+  INC vBlankReady
  @WAITLOOP:
-  BIT gameStatus
-  BVS @WAITLOOP
+  LDY vBlankReady
+  BNE @WAITLOOP
   LDY #bhbLength-1
   STY bhbIndex
   .byte $0C ;nop $A001

@@ -25,3 +25,4 @@ Simply take the `.nes` file you just built and run it using any* NES emulator.
 
 Feel free to make any changes you see fit! If you have a feature suggestion or bug, [create an Issue](https://github.com/Merlin1247/blockstorm-blitz/issues). If you have a more general programming question, message me on Discord.
 
+Copyright (C) 2025 Brandon W.
