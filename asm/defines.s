@@ -36,6 +36,7 @@
 .define ballYSubSpeedTemp $1B
 .define ballXSubPosTemp $1C
 .define ballYSubPosTemp $1D
+;.define loadingFlag $16
 ;.define ballStatusTemp $BA
 
 .define maxBallCount 25

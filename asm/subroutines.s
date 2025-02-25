@@ -125,7 +125,8 @@ NewBall:
 DrawText:
   STA tempIndex+1
   STX tempIndex
-  LAX ppuCtrlTracker
+  LDA ppuCtrlTracker
+  PHA
   AND #%11111011
   STA ppuCtrl
   LDY #0
@@ -137,14 +138,23 @@ DrawText:
   LDA (tempIndex), Y
   STA ppuAddr
   DEY
- :LDA (tempIndex), Y
+ @MAINLOOP:
+  LDA (tempIndex), Y
   BEQ :+
   STA ppuData
-  BNE :++
- :LDA ppuData
+  BNE :++ ;Always branch
+
  :DEY
-  BNE :---
-  STX ppuCtrl
+  LAX (tempIndex), Y
+ @READLOOP:
+  LDA ppuData
+  DEX
+  BNE @READLOOP
+
+ :DEY
+  BNE @MAINLOOP
+  PLA
+  STA ppuCtrl ;Necessary?
   STY ppuScroll
   STY ppuScroll
   RTS
@@ -223,7 +233,7 @@ HitBlock:
   LDY healthPage, X
 
 LoadBlock: ; y = health,  
-  ;LDA ppuSTAtus ;read PPU status to reset high/low latch
+  ;LDA ppuStatus ;read PPU status to reset high/low latch
   TYA ;cpy #0 ;could remove?
   STA $F9 ;Find current case
   BEQ @CASE0
@@ -247,7 +257,7 @@ LoadBlock: ; y = health,
   JMP :+
   
  @CASE0:
-  LDA #$1A
+  LDA #$6F
   STA $F6
   STA $F7
   JMP :+
@@ -376,7 +386,6 @@ SetTilePalette:
   SAX $FB
   TXA
   EOR #%11111111
-  TAX
 
   BIT loadingFlag
   BVS @LOAD1
@@ -395,10 +404,9 @@ SetTilePalette:
 
  @STOREPALETTE:
   CLC ;could remove?
+  STA bhbPaletteMask, Y
   PLA
   STA bhbPaletteAddrLo, Y
-  TXA
-  STA bhbPaletteMask, Y
   LDA $FB
   STA bhbNewPalette, Y
   RTS

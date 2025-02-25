@@ -22,8 +22,6 @@
   INY
   BNE @LOOPCPU
 
-  JSR UpdateVectors
-
   STX stackMem+1 ;set sprite 0 blank, since its Y pos is part of stack
 
  ;Set up pause sprites
@@ -76,11 +74,53 @@
   BPL :-
   ;PPU registers are now stable
 
+  LDA #$80
+  STA ppuCtrl ;Enable nmi
+  STA ppuCtrlTracker
   ;PpuCtrl & Tracker are 0
+
+  ;LDA #2
+  ;STA level
+
+LOADMAINMENU:
+
+  JSR UpdateVectors
 
   LDX #<PALETTEDATA
   LDA #>PALETTEDATA
   JSR DrawText
 
-  ;LDA #2
-  ;STA level
+  LDX #$20
+  STX ppuAddr
+  STY ppuAddr
+  TSX
+
+ :STY ppuData
+  STY ppuData
+  STY ppuData
+  STY ppuData
+  DEX
+  BNE :-
+
+  LDX #<TITLELOGO
+  LDA #>TITLELOGO
+  JSR DrawText
+
+  LDX #<PRESSSTART
+  LDA #>PRESSSTART
+  JSR DrawText
+
+  LDX #<LISCENSE
+  LDA #>LISCENSE
+  JSR DrawText
+
+  LDA #%10010100
+  STA ppuCtrlTracker
+
+  INC vBlankReady
+
+ :LDA vBlankReady
+  BNE :-
+
+  LDA #%00001000
+  STA ppuMask

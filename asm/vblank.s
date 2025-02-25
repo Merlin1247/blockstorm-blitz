@@ -3,7 +3,7 @@
   PHA
   LDA vBlankReady
   BNE :+
-  JMP LOADOAM
+  JMP LOADOAM ;Necessary?
  :JMP (vBlankVector)
 
 .include "vblankevents\title-v.s"
